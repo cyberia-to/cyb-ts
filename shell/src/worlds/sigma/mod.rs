@@ -90,6 +90,7 @@ impl Plugin for SigmaWorldPlugin {
         let shared = app.world().resource::<SharedCell>().clone();
         let neuron = app.world().resource::<super::identity::Identity>().neuron;
         app.insert_resource(SigmaState::new(&shared, neuron));
+        app.init_resource::<chain::ChainMoney>();
         app
             .add_systems(OnEnter(WorldState::Sigma), (setup_sigma, refresh_chain_on_enter))
             .add_systems(OnExit(WorldState::Sigma), destroy_sigma)
@@ -100,6 +101,7 @@ impl Plugin for SigmaWorldPlugin {
                     refresh_sigma_labels,
                     handle_chain_buttons,
                     refresh_chain_labels,
+                    poll_chain,
                 )
                     .run_if(in_state(WorldState::Sigma)),
             );
@@ -432,11 +434,15 @@ fn hex3(b: &[u8]) -> String {
 
 
 /// Entering sigma asks the chain; the answer lands via the shared slot.
+/// Defensive on purpose: with `CYB_WORLD=sigma` the initial OnEnter can
+/// fire while plugins are still assembling, before body's resources
+/// exist. Missing pieces mean "ask later", never a panic.
 fn refresh_chain_on_enter(
-    money: Res<chain::ChainMoney>,
-    hub: Res<crate::worlds::body::BodyLinkHub>,
-    who: Res<crate::worlds::identity::Identity>,
+    money: Option<Res<chain::ChainMoney>>,
+    hub: Option<Res<crate::worlds::body::BodyLinkHub>>,
+    who: Option<Res<crate::worlds::identity::Identity>>,
 ) {
+    let (Some(money), Some(hub), Some(who)) = (money, hub, who) else { return };
     if let Some(url) = chain::chain_url(&hub.0) {
         money.refresh(url, chain::neuron_hex(&who));
     }
@@ -445,10 +451,11 @@ fn refresh_chain_on_enter(
 fn handle_chain_buttons(
     refreshes: Query<&Interaction, (Changed<Interaction>, With<ChainRefreshBtn>)>,
     sends: Query<&Interaction, (Changed<Interaction>, With<ChainSendBtn>)>,
-    money: Res<chain::ChainMoney>,
-    hub: Res<crate::worlds::body::BodyLinkHub>,
-    who: Res<crate::worlds::identity::Identity>,
+    money: Option<Res<chain::ChainMoney>>,
+    hub: Option<Res<crate::worlds::body::BodyLinkHub>>,
+    who: Option<Res<crate::worlds::identity::Identity>>,
 ) {
+    let (Some(money), Some(hub), Some(who)) = (money, hub, who) else { return };
     let refresh = refreshes.iter().any(|i| *i == Interaction::Pressed);
     let send = sends.iter().any(|i| *i == Interaction::Pressed);
     if !refresh && !send {
@@ -465,11 +472,12 @@ fn handle_chain_buttons(
 
 /// Repaint the chain block when the slot moves.
 fn refresh_chain_labels(
-    money: Res<chain::ChainMoney>,
+    money: Option<Res<chain::ChainMoney>>,
     mut seen: Local<u64>,
     mut balance_q: Query<&mut Text, (With<ChainMoneyLabel>, Without<ChainReceiptLabel>)>,
     mut receipt_q: Query<&mut Text, (With<ChainReceiptLabel>, Without<ChainMoneyLabel>)>,
 ) {
+    let Some(money) = money else { return };
     let s = money.snapshot();
     if s.version == *seen {
         return;
@@ -488,5 +496,43 @@ fn refresh_chain_labels(
         } else {
             s.receipt.clone()
         };
+    }
+}
+
+
+/// While sigma is open the balance stays live: a poll every 15s, and the
+/// FIRST poll fires immediately — which also covers the boot-into-sigma
+/// case where OnEnter ran before body's resources existed.
+fn poll_chain(
+    time: Res<Time>,
+    mut wait: Local<Option<f32>>,
+    money: Option<Res<chain::ChainMoney>>,
+    hub: Option<Res<crate::worlds::body::BodyLinkHub>>,
+    who: Option<Res<crate::worlds::identity::Identity>>,
+) {
+    let due = match wait.as_mut() {
+        None => {
+            *wait = Some(0.0);
+            true
+        }
+        Some(w) => {
+            *w += time.delta_secs();
+            if *w >= 15.0 {
+                *w = 0.0;
+                true
+            } else {
+                false
+            }
+        }
+    };
+    if !due {
+        return;
+    }
+    let (Some(money), Some(hub), Some(who)) = (money, hub, who) else { return };
+    if money.snapshot().busy {
+        return;
+    }
+    if let Some(url) = chain::chain_url(&hub.0) {
+        money.refresh(url, chain::neuron_hex(&who));
     }
 }

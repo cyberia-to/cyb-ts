@@ -27,7 +27,7 @@ ROOT="$(pwd)"
 T="$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/bin"
 BIN="$ROOT/target/debug/cyb"
 N="${FLEET_N:-3}"
-RUN_SECS="${FLEET_SECS:-30}"
+RUN_SECS="${FLEET_SECS:-45}"
 PORT=$((20000 + RANDOM % 10000))
 WORK="$(mktemp -d /tmp/cyb-fleet.XXXXXX)"
 PASS=0; FAIL=0
