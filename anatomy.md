@@ -13,52 +13,52 @@ the robot is one organism with **21 parts in six layers**. every surface — the
 
 | part | is | today |
 |---|---|---|
-| **name** | the NFT resolver — the robot's name resolves through the graph ([[moon-passport]] lineage), owned like a token, not set in a config | ports with the soft3 genesis |
-| **avatar** | the robot's visualization — its model, the rendered creature others see and you recognize | to grow; the robot world's creature is its seed |
-| **soul** | the main config: one file defining processing when the robot is asked — which model, which dialect, what it may do unasked | `~/cyb/soul` to define; soma settings are its embryo |
-| **ward** | the enforcer of the soul: the permission boundary every runtime's act passes through — holds the caps, performs or refuses, prompts the neuron | live — the effect router; doctrine at [[cyb/parts/ward|ward]] |
+| **[[cyb/parts/name|name]]** | the NFT resolver — the robot's name resolves through the graph ([[moon-passport]] lineage), owned like a token, not set in a config | ports with the soft3 genesis |
+| **[[cyb/parts/avatar|avatar]]** | the robot's visualization — its model, the rendered creature others see and you recognize | to grow; the robot world's creature is its seed |
+| **[[cyb/parts/soul|soul]]** | the main config: one file defining processing when the robot is asked — which model, which dialect, what it may do unasked | `~/cyb/soul` to define; soma settings are its embryo |
+| **[[cyb/parts/ward|ward]]** | the enforcer of the soul: the permission boundary every runtime's act passes through — holds the caps, performs or refuses, prompts the neuron | live — the effect router; doctrine at [[cyb/parts/ward|ward]] |
 
 ## II · mind — what thinks
 
 | part | is | today |
 |---|---|---|
-| **soma** | mind and model: local inference, weights, silicon | live — soma kernel + honeycrisp, `? q` in com |
-| **brain** | the rendered graph | live as the world currently named *graph* (mir, 100+ fps) → renames to **brain** |
-| **memory** | particles rendered as a file system — table or tiles, tap to read | half-live: tap-to-read pages + [[cyb/parts/fs|fs]] become its spec; a projection of brain, one key flips brain ⇄ memory |
+| **[[cyb/parts/soma|soma]]** | mind and model: local inference, weights, silicon | live — soma kernel + honeycrisp, `? q` in com |
+| **[[cyb/parts/brain|brain]]** | the rendered graph | live as the world currently named *graph* (mir, 100+ fps) → renames to **brain** |
+| **[[cyb/parts/memory|memory]]** | particles rendered as a file system — table or tiles, tap to read | half-live: tap-to-read pages + [[cyb/parts/fs|fs]] become its spec; a projection of brain, one key flips brain ⇄ memory |
 
 ## III · senses and speech — what perceives and says
 
 | part | is | today |
 |---|---|---|
-| **com** | the commander — the one line where the user types; the mouth of the robot, reads [[cyb/anatomy|soul]] on every ask | live (com world); becomes omnipresent chrome, not a world |
-| **now** | the context indicator — which particle the robot stands on, shown top-left | to build; chrome element |
-| **sense** | the messenger — interaction with other neurons, particles, robots | seed exists (`money_to_sense`, notices); grows into the robot's inbox/outbox |
-| **voice** | speech — the robot heard and speaking | to grow |
-| **vision** | sight — camera, screen, world | to grow |
-| **state** | verified perception of external networks: every answer is a value **plus a tier** (T0 proof-verified · T1 anchor-verified · T3 unproven RPC, badged); one query IR, a proof-router, local verification over provider truth | doctrine written — [[cyb/parts/state|state]] |
+| **[[cyb/parts/com|com]]** | the commander — the one line where the user types; the mouth of the robot, reads [[cyb/anatomy|soul]] on every ask | live (com world); becomes omnipresent chrome, not a world |
+| **[[cyb/parts/now|now]]** | the context indicator — which particle the robot stands on, shown top-left | to build; chrome element |
+| **[[cyb/parts/sense|sense]]** | the messenger — interaction with other neurons, particles, robots | seed exists (`money_to_sense`, notices); grows into the robot's inbox/outbox |
+| **[[cyb/parts/voice|voice]]** | speech — the robot heard and speaking | to grow |
+| **[[cyb/parts/vision|vision]]** | sight — camera, screen, world | to grow |
+| **[[cyb/parts/state|state]]** | verified perception of external networks: every answer is a value **plus a tier** (T0 proof-verified · T1 anchor-verified · T3 unproven RPC, badged); one query IR, a proof-router, local verification over provider truth | doctrine written — [[cyb/parts/state|state]] |
 
 ## IV · value — what it holds
 
 | part | is | today |
 |---|---|---|
-| **sigma** | not a wallet: the sum of all tokens in possession, and the management of neurons (identities) | live (sigma world); gains the neurons screen; the word *wallet* is banned |
-| **vault** | secrets and sleeping neurons: keys, mnemonics, TOTP | live — XChaCha20 under mnemonic + TOTP; sigma spends, vault holds and signs |
+| **[[cyb/parts/sigma|sigma]]** | not a wallet: the sum of all tokens in possession, and the management of neurons (identities) | live (sigma world); gains the neurons screen; the word *wallet* is banned |
+| **[[cyb/parts/vault|vault]]** | secrets and sleeping neurons: keys, mnemonics, TOTP | live — XChaCha20 under mnemonic + TOTP; sigma spends, vault holds and signs |
 
 ## V · time — what it did and will do
 
 | part | is | today |
 |---|---|---|
-| **log** | the history of every interaction | live in substance: the durable tape `~/cyb/graph.log` *is* the log |
-| **plan** | the schedule: standing orders, deferred intents | seed exists (mining standing order); generalizes |
-| **time** | one screen: log ← **now** → plan, the present in the middle | to build; the flagship view |
+| **[[cyb/parts/log|log]]** | the history of every interaction | live in substance: the durable tape `~/cyb/graph.log` *is* the log |
+| **[[cyb/parts/plan|plan]]** | the schedule: standing orders, deferred intents | seed exists (mining standing order); generalizes |
+| **[[cyb/parts/time|time]]** | one screen: log ← **now** → plan, the present in the middle | to build; the flagship view |
 
 ## VI · flesh — what it is made of
 
 | part | is | today |
 |---|---|---|
-| **body** | the physical body: silicon, sensors, energy, mining — telemetry and resources of the machine the robot lives on | live (default world: telemetry, erga child, PUSSY/day) |
-| **cell** | an organ-extension: a live-loaded program that grows the robot a new ability | live (rune cell runtime). ⚠ distinct from the protocol's [[cell]] (a 4D particle group) — the robot grows *cells as organs* |
-| **radio** | the physical layer of communication with external networks; [[sense]] speaks over radio | live — the cyber-radio transport; the wire obeys the graph: follow/antenna/socket are cyberlinks |
+| **[[cyb/parts/body|body]]** | the physical body: silicon, sensors, energy, mining — telemetry and resources of the machine the robot lives on | live (default world: telemetry, erga child, PUSSY/day) |
+| **[[cyb/parts/cells|cell]]** | an organ-extension: a live-loaded program that grows the robot a new ability | live (rune cell runtime). ⚠ distinct from the protocol's [[cell]] (a 4D particle group) — the robot grows *cells as organs* |
+| **[[cyb/parts/radio|radio]]** | the physical layer of communication with external networks; [[sense]] speaks over radio | live — the cyber-radio transport; the wire obeys the graph: follow/antenna/socket are cyberlinks |
 
 ## deliberately absent
 
