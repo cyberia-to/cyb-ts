@@ -1,12 +1,20 @@
 ---
 title: now
 tags: cyb, core
-alias: cyb now, context indicator
+alias: cyb now, context indicator, the context
 crystal-type: entity
 crystal-domain: cyb
 ---
 # now
 
-the context indicator: which particle the robot stands on this second, always visible top-left. now is the cursor of attention — what [[cyb/parts/com|com]] acts on by default, what [[cyb/parts/time|time]] centers on.
+the context: the particle the robot stands on this second — shown always, top-left. now looks like an indicator and is actually the hinge of the whole robot. its functions, and this list will only grow:
 
-part of the [[cyb/anatomy|anatomy]] (senses). to build — a chrome element, not a world
+- **the default subject** — a [[cyb/parts/com|com]] command with no target acts on now
+- **the model's window** — when [[cyb/parts/soma|soma]] is asked, the context packed into the model is the neighborhood of now
+- **the anchor of casts** — new links attach from now unless said otherwise; move, and your next thought lands elsewhere
+- **the cursor of navigation** — where [[cyb/parts/brain|brain]] flies and [[cyb/parts/memory|memory]] scrolls, now is the position
+- **the center of [[cyb/parts/time|time]]** — the screen pivots on the present: [[cyb/parts/log|log]] behind it, [[cyb/parts/plan|plan]] ahead
+- **the address of attention** — what the robot reports as its focus; two robots on one particle are *in the same place*, which is what presence means in a graph
+- **the seed of [[cyb/parts/sense|sense]]** — messages attach to the particle they were spoken on
+
+part of the [[cyb/anatomy|anatomy]] (time layer — the present between log and plan). moving now is the robot's basic act of thought: attention is a position, and the position is real

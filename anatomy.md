@@ -31,7 +31,6 @@ the robot is one organism with **21 parts in six layers**. every surface — the
 | part | is | today |
 |---|---|---|
 | **[[cyb/parts/com|com]]** | the commander — the one line where the user types; the mouth of the robot, reads [[cyb/anatomy|soul]] on every ask | live (com world); becomes omnipresent chrome, not a world |
-| **[[cyb/parts/now|now]]** | the context indicator — which particle the robot stands on, shown top-left | to build; chrome element |
 | **[[cyb/parts/sense|sense]]** | the messenger — interaction with other neurons, particles, robots | seed exists (`money_to_sense`, notices); grows into the robot's inbox/outbox |
 | **[[cyb/parts/voice|voice]]** | speech — the robot heard and speaking | to grow |
 | **[[cyb/parts/vision|vision]]** | sight — camera, screen, world | to grow |
@@ -49,6 +48,7 @@ the robot is one organism with **21 parts in six layers**. every surface — the
 | part | is | today |
 |---|---|---|
 | **[[cyb/parts/log|log]]** | the history of every interaction | live in substance: the durable tape `~/cyb/graph.log` *is* the log |
+| **[[cyb/parts/now|now]]** | the context — the particle the robot stands on, and the hinge of everything: what [[cyb/parts/com|com]] acts on by default, what [[cyb/parts/soma|soma]] packs into the model's window, where casts attach, where [[cyb/parts/brain|brain]] and [[cyb/parts/memory|memory]] stand, the center [[cyb/parts/time|time]] pivots on | partial — the app tracks a current particle; the organ with its many functions is to build |
 | **[[cyb/parts/plan|plan]]** | the schedule: standing orders, deferred intents | seed exists (mining standing order); generalizes |
 | **[[cyb/parts/time|time]]** | one screen: log ← **now** → plan, the present in the middle | to build; the flagship view |
 
