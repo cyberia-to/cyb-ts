@@ -469,6 +469,38 @@ fn run_pending_command(world: &mut World) {
         return;
     }
 
+    // `pay <to> <amount>` — real money moves on the chain. The response
+    // carries the block it finalized in; sigma shows the fresh balance.
+    if let Some(rest) = cmd.trim().strip_prefix("pay ") {
+        let words: Vec<&str> = rest.split_whitespace().collect();
+        let said = if words.len() != 2 {
+            "pay <to> <amount>".to_string()
+        } else if let Ok(amount) = words[1].parse::<u64>() {
+            let hub = world.resource::<crate::worlds::body::BodyLinkHub>().0.clone();
+            let money = world.resource::<crate::worlds::sigma::chain::ChainMoney>().clone();
+            let who = world.resource::<crate::worlds::identity::Identity>().clone();
+            match crate::worlds::sigma::chain::chain_url(&hub) {
+                Some(url) => {
+                    money.pay(
+                        url,
+                        crate::worlds::sigma::chain::neuron_hex(&who),
+                        words[0].to_string(),
+                        amount,
+                    );
+                    format!("paying {amount} to {} - receipt lands in sigma", words[0])
+                }
+                None => "pay: no network configured".into(),
+            }
+        } else {
+            "pay: amount must be a number".to_string()
+        };
+        world.resource_mut::<crate::worlds::Notice>().show(said.clone());
+        world
+            .resource_mut::<crate::worlds::ComInbox>()
+            .say(crate::worlds::Speaker::System, said);
+        return;
+    }
+
     // `cast <from> <to> [amount]` — a deliberate link, by hand. It lands
     // in the local cell like every other signal; the relay carries it to
     // the chain, where one signal is one block.

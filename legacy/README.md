@@ -1,6 +1,7 @@
 ---
 title: legacy
 tags: cyb
+alias: cyb-ts, cyb legacy
 ---
 # legacy — the JS era
 

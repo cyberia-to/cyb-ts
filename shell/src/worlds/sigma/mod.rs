@@ -10,7 +10,19 @@ use prysm::theme;
 use super::{ComInbox, Notice, SharedCell, Speaker, WorldState};
 use crate::shell::chrome::{CHROME_BOTTOM_H, CHROME_TOP_H};
 
+pub mod chain;
+
 pub struct SigmaWorldPlugin;
+
+/// Markers for the on-chain money block.
+#[derive(Component)]
+struct ChainMoneyLabel;
+#[derive(Component)]
+struct ChainReceiptLabel;
+#[derive(Component)]
+struct ChainRefreshBtn;
+#[derive(Component)]
+struct ChainSendBtn;
 
 #[derive(Component)]
 struct SigmaRoot;
@@ -79,11 +91,17 @@ impl Plugin for SigmaWorldPlugin {
         let neuron = app.world().resource::<super::identity::Identity>().neuron;
         app.insert_resource(SigmaState::new(&shared, neuron));
         app
-            .add_systems(OnEnter(WorldState::Sigma), setup_sigma)
+            .add_systems(OnEnter(WorldState::Sigma), (setup_sigma, refresh_chain_on_enter))
             .add_systems(OnExit(WorldState::Sigma), destroy_sigma)
             .add_systems(
                 Update,
-                (handle_sigma_buttons, refresh_sigma_labels).run_if(in_state(WorldState::Sigma)),
+                (
+                    handle_sigma_buttons,
+                    refresh_sigma_labels,
+                    handle_chain_buttons,
+                    refresh_chain_labels,
+                )
+                    .run_if(in_state(WorldState::Sigma)),
             );
     }
 }
@@ -120,6 +138,61 @@ fn setup_sigma(mut commands: Commands, state: Res<SigmaState>) {
                     ..default()
                 },
                 TextColor(Color::srgb(0.7, 0.95, 0.8)),
+            ));
+
+            // ── the chain: earned by proving, spendable now ────────────
+            root.spawn((
+                Text::new("on the chain (pussy) - earned by proven work"),
+                TextFont { font_size: 13.0, ..default() },
+                TextColor(Color::srgb(0.55, 0.6, 0.65)),
+            ));
+            root.spawn((
+                ChainMoneyLabel,
+                Text::new("querying the chain..."),
+                TextFont { font_size: 28.0, ..default() },
+                TextColor(Color::srgb(0.4, 0.95, 0.6)),
+            ));
+            root.spawn((
+                ChainReceiptLabel,
+                Text::new(""),
+                TextFont { font_size: 13.0, ..default() },
+                TextColor(Color::srgb(0.55, 0.6, 0.65)),
+            ));
+            root.spawn(Node {
+                flex_direction: FlexDirection::Row,
+                column_gap: Val::Px(8.0),
+                ..default()
+            })
+            .with_children(|row| {
+                for (label, is_send) in [("refresh chain", false), ("send 1000 -> friend", true)] {
+                    let mut b = row.spawn((
+                        Button,
+                        Node {
+                            padding: UiRect::axes(Val::Px(14.0), Val::Px(8.0)),
+                            border: UiRect::all(Val::Px(1.0)),
+                            ..default()
+                        },
+                        BackgroundColor(theme::DARK_BASE),
+                        BorderColor::all(Color::srgb(0.2, 0.5, 0.35)),
+                    ));
+                    if is_send {
+                        b.insert(ChainSendBtn);
+                    } else {
+                        b.insert(ChainRefreshBtn);
+                    }
+                    b.with_children(|inner| {
+                        inner.spawn((
+                            Text::new(label),
+                            TextFont { font_size: 14.0, ..default() },
+                            TextColor(Color::srgb(0.8, 0.9, 0.85)),
+                        ));
+                    });
+                }
+            });
+            root.spawn((
+                Text::new("pay <to> <amount> in the commander sends anywhere"),
+                TextFont { font_size: 12.0, ..default() },
+                TextColor(Color::srgb(0.4, 0.45, 0.5)),
             ));
             root.spawn((
                 SigmaStatusLabel,
@@ -356,3 +429,64 @@ fn hex3(b: &[u8]) -> String {
 }
 
 
+
+
+/// Entering sigma asks the chain; the answer lands via the shared slot.
+fn refresh_chain_on_enter(
+    money: Res<chain::ChainMoney>,
+    hub: Res<crate::worlds::body::BodyLinkHub>,
+    who: Res<crate::worlds::identity::Identity>,
+) {
+    if let Some(url) = chain::chain_url(&hub.0) {
+        money.refresh(url, chain::neuron_hex(&who));
+    }
+}
+
+fn handle_chain_buttons(
+    refreshes: Query<&Interaction, (Changed<Interaction>, With<ChainRefreshBtn>)>,
+    sends: Query<&Interaction, (Changed<Interaction>, With<ChainSendBtn>)>,
+    money: Res<chain::ChainMoney>,
+    hub: Res<crate::worlds::body::BodyLinkHub>,
+    who: Res<crate::worlds::identity::Identity>,
+) {
+    let refresh = refreshes.iter().any(|i| *i == Interaction::Pressed);
+    let send = sends.iter().any(|i| *i == Interaction::Pressed);
+    if !refresh && !send {
+        return;
+    }
+    let Some(url) = chain::chain_url(&hub.0) else { return };
+    let hex = chain::neuron_hex(&who);
+    if send {
+        money.pay(url, hex, "friend".into(), 1000);
+    } else {
+        money.refresh(url, hex);
+    }
+}
+
+/// Repaint the chain block when the slot moves.
+fn refresh_chain_labels(
+    money: Res<chain::ChainMoney>,
+    mut seen: Local<u64>,
+    mut balance_q: Query<&mut Text, (With<ChainMoneyLabel>, Without<ChainReceiptLabel>)>,
+    mut receipt_q: Query<&mut Text, (With<ChainReceiptLabel>, Without<ChainMoneyLabel>)>,
+) {
+    let s = money.snapshot();
+    if s.version == *seen {
+        return;
+    }
+    *seen = s.version;
+    for mut t in &mut balance_q {
+        **t = if s.busy && s.balance == 0 {
+            "querying the chain...".into()
+        } else {
+            format!("{} PUSSY   (chain h={}, supply {})", s.balance, s.height, s.supply)
+        };
+    }
+    for mut t in &mut receipt_q {
+        **t = if !s.error.is_empty() {
+            format!("! {}", s.error)
+        } else {
+            s.receipt.clone()
+        };
+    }
+}

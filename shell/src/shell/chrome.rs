@@ -209,17 +209,6 @@ fn spawn_chrome(mut commands: Commands) {
                     ..default()
                 })
                 .with_children(|right| {
-                    // Which cyb this window IS — hash + build minute. The
-                    // question "am I looking at the build I just made?"
-                    // should never need a terminal to answer.
-                    right.spawn((
-                        Text::new(env!("CYB_VERSION")),
-                        TextFont {
-                            font_size: 13.0,
-                            ..default()
-                        },
-                        TextColor(Color::srgba(0.30, 0.42, 0.36, 0.9)),
-                    ));
                     right.spawn((
                         IdentityLabel,
                         Text::new(""),
@@ -228,6 +217,18 @@ fn spawn_chrome(mut commands: Commands) {
                             ..default()
                         },
                         TextColor(Color::srgba(0.35, 0.35, 0.50, 0.8)),
+                    ));
+                    // Which cyb this window IS — hash + build minute, the
+                    // OUTERMOST top-right mark. Green enough to find at a
+                    // glance; the question "am I looking at the build I
+                    // just made?" should never need a terminal.
+                    right.spawn((
+                        Text::new(env!("CYB_VERSION")),
+                        TextFont {
+                            font_size: 13.0,
+                            ..default()
+                        },
+                        TextColor(Color::srgba(0.13, 0.72, 0.45, 1.0)),
                     ));
                 });
             });
