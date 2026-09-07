@@ -12,8 +12,14 @@
 //!
 //! The proof count survives restarts in `~/cyb/proofs` — work done is
 //! work done, whichever session did it.
+//!
+//! Proving is a FLEET: tickets are independent, so every core can carry
+//! one. The duty lever is erga's, reused: `~/cyb/prover-intensity` holds
+//! max (every core), eco (half) or min (one) — re-read live between
+//! tickets, no restart. All workers ride utility QoS: the fleet eats idle
+//! silicon, never the frame loop or the mind.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -36,6 +42,8 @@ pub struct ProverStat {
     /// Graph the tickets are proved over.
     pub n: usize,
     pub axons: usize,
+    /// Worker threads currently proving.
+    pub workers: usize,
     pub since: Option<Instant>,
     /// The chain state the current tickets bind to: (network, height,
     /// state root). Empty until the first network is reached.
@@ -57,6 +65,38 @@ impl ProverStat {
 pub struct Prover {
     pub stat: Arc<Mutex<ProverStat>>,
     run: Arc<AtomicBool>,
+}
+
+fn intensity_file() -> std::path::PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+    std::path::Path::new(&home).join("cyb").join("prover-intensity")
+}
+
+/// max = every core, eco = half, min = one. Anything unparsed is max —
+/// the lever exists to hold back, not to enable.
+pub fn intensity() -> String {
+    std::fs::read_to_string(intensity_file())
+        .map(|s| s.trim().to_string())
+        .ok()
+        .filter(|s| ["max", "eco", "min"].contains(&s.as_str()))
+        .unwrap_or_else(|| "max".into())
+}
+
+pub fn set_intensity(mode: &str) {
+    let path = intensity_file();
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = std::fs::write(path, mode);
+}
+
+fn fleet_size(mode: &str) -> usize {
+    let cores = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+    match mode {
+        "min" => 1,
+        "eco" => (cores / 2).max(1),
+        _ => cores,
+    }
 }
 
 fn proofs_file() -> std::path::PathBuf {
@@ -111,79 +151,129 @@ impl Prover {
             s.since = Some(Instant::now());
         }
 
-        let stat = self.stat.clone();
-        let run = self.run.clone();
-        std::thread::Builder::new()
-            .name("body-prover".into())
-            .spawn(move || {
-                #[cfg(target_os = "macos")]
-                unsafe {
-                    // QOS_CLASS_UTILITY: the prover yields to everything
-                    // interactive instead of parking soma or the frame loop.
-                    unsafe extern "C" {
-                        fn pthread_set_qos_class_self_np(qos: u32, rel: i32) -> i32;
-                    }
-                    pthread_set_qos_class_self_np(0x11, 0);
-                }
+        let graph = std::sync::Arc::new(graph);
+        // One counter names every ticket across the fleet — numbers stay
+        // unique and the lifetime tally is their sum by construction.
+        let counter = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(read_lifetime()));
+        // How many workers SHOULD be alive right now (the intensity lever,
+        // resolved). Workers watch it; the supervisor moves it.
+        let target = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
-                let mut ticket_no = read_lifetime();
-                let mut last_flush = Instant::now();
-                while run.load(Ordering::Relaxed) {
-                    let t0 = Instant::now();
-                    // A fresh public vector per ticket, bound to the beacon:
-                    // anyone holding (ticket number, chain state root) can
-                    // rebuild x and re-verify. No beacon yet = seed 0, and
-                    // the card says so.
-                    let beacon = hub.beacon();
-                    let root_seed = beacon
-                        .as_ref()
-                        .map(|(_, h, root)| beacon_seed(*h, root))
-                        .unwrap_or(0);
-                    if let Ok(mut s) = stat.lock() {
-                        s.beacon = beacon;
-                    }
-                    let x: Vec<Goldilocks> = (0..graph.n)
-                        .map(|i| {
-                            Goldilocks::new(splitmix64(
-                                ticket_no.wrapping_mul(0x9e37) ^ root_seed ^ i as u64,
-                            ))
-                        })
-                        .collect();
-                    let y = spmv_native(&graph, &x);
-                    let ok = prove_spmv(&graph, &x, &y)
-                        .map(|proof| verify_spmv(&graph, &x, &y, &proof))
-                        .unwrap_or(false);
-
-                    let ms = t0.elapsed().as_secs_f32() * 1000.0;
-                    ticket_no += 1;
-                    if let Ok(mut s) = stat.lock() {
-                        if ok {
-                            s.tickets += 1;
-                            s.lifetime += 1;
-                        } else {
-                            s.failed += 1;
+        // ── the supervisor: sizes the fleet, flushes the counter ────────
+        {
+            let stat = self.stat.clone();
+            let run = self.run.clone();
+            let counter = counter.clone();
+            let target = target.clone();
+            let graph = graph.clone();
+            let hub = hub.clone();
+            std::thread::Builder::new()
+                .name("body-prover-sup".into())
+                .spawn(move || {
+                    let mut spawned = 0usize;
+                    let mut last_flush = Instant::now();
+                    while run.load(Ordering::Relaxed) {
+                        let want = fleet_size(&intensity());
+                        target.store(want, Ordering::Relaxed);
+                        // Spawn up to the target; shrinking is the workers'
+                        // own exit (index >= target).
+                        while spawned < want {
+                            let idx = spawned;
+                            spawn_worker(
+                                idx,
+                                graph.clone(),
+                                hub.clone(),
+                                stat.clone(),
+                                run.clone(),
+                                counter.clone(),
+                                target.clone(),
+                            );
+                            spawned += 1;
                         }
-                        s.last_ms = ms;
+                        if let Ok(mut s) = stat.lock() {
+                            s.workers = spawned.min(want);
+                        }
+                        if last_flush.elapsed().as_secs() >= 10 {
+                            write_lifetime(counter.load(Ordering::Relaxed));
+                            last_flush = Instant::now();
+                        }
+                        std::thread::sleep(std::time::Duration::from_secs(2));
                     }
-                    // The lifetime counter reaches disk every few seconds
-                    // and on the final ticket — a hard kill costs at most
-                    // that much proven work, not a session.
-                    if last_flush.elapsed().as_secs() >= 10 {
-                        write_lifetime(ticket_no);
-                        last_flush = Instant::now();
+                    write_lifetime(counter.load(Ordering::Relaxed));
+                    if let Ok(mut s) = stat.lock() {
+                        s.running = false;
+                        s.workers = 0;
                     }
-                }
-                write_lifetime(ticket_no);
-                if let Ok(mut s) = stat.lock() {
-                    s.running = false;
-                }
-            })
-            .expect("spawn body-prover");
+                })
+                .expect("spawn body-prover-sup");
+        }
     }
 
     pub fn stop(&self) {
         self.run.store(false, Ordering::SeqCst);
     }
+}
+
+/// One oar in the fleet: proves tickets until told the fleet shrank past
+/// it or stopped. Utility QoS — idle silicon only.
+#[allow(clippy::too_many_arguments)]
+fn spawn_worker(
+    idx: usize,
+    graph: std::sync::Arc<SparseGraph>,
+    hub: NetHub,
+    stat: std::sync::Arc<std::sync::Mutex<ProverStat>>,
+    run: std::sync::Arc<AtomicBool>,
+    counter: std::sync::Arc<AtomicU64>,
+    target: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+) {
+    std::thread::Builder::new()
+        .name(format!("body-prover-{idx}"))
+        .spawn(move || {
+            #[cfg(target_os = "macos")]
+            unsafe {
+                unsafe extern "C" {
+                    fn pthread_set_qos_class_self_np(qos: u32, rel: i32) -> i32;
+                }
+                pthread_set_qos_class_self_np(0x11, 0);
+            }
+            while run.load(Ordering::Relaxed) {
+                if idx >= target.load(Ordering::Relaxed) {
+                    // The lever came down; this oar rests until it rises.
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                    continue;
+                }
+                let t0 = Instant::now();
+                let beacon = hub.beacon();
+                let root_seed = beacon
+                    .as_ref()
+                    .map(|(_, h, root)| beacon_seed(*h, root))
+                    .unwrap_or(0);
+                let ticket_no = counter.fetch_add(1, Ordering::Relaxed);
+                let x: Vec<Goldilocks> = (0..graph.n)
+                    .map(|i| {
+                        Goldilocks::new(splitmix64(
+                            ticket_no.wrapping_mul(0x9e37) ^ root_seed ^ i as u64,
+                        ))
+                    })
+                    .collect();
+                let y = spmv_native(&graph, &x);
+                let ok = prove_spmv(&graph, &x, &y)
+                    .map(|proof| verify_spmv(&graph, &x, &y, &proof))
+                    .unwrap_or(false);
+                let ms = t0.elapsed().as_secs_f32() * 1000.0;
+                if let Ok(mut s) = stat.lock() {
+                    if ok {
+                        s.tickets += 1;
+                        s.lifetime += 1;
+                    } else {
+                        s.failed += 1;
+                    }
+                    s.last_ms = ms;
+                    s.beacon = beacon;
+                }
+            }
+        })
+        .expect("spawn prover worker");
 }
 
 /// The local cybergraph as zheng sees it: axon endpoints become row/col

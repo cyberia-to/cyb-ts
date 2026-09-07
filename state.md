@@ -7,7 +7,7 @@ crystal-domain: cyb
 ---
 # state — how the robot reads external truth
 
-part of the [[cyb/anatomy|anatomy]] (substrate layer). the notes below are the working doctrine for cyb's access to external network state.
+part of the [[cyb/anatomy|anatomy]] (senses layer — the robot's verified sight into other networks). the notes below are the working doctrine for cyb's access to external network state.
 
 ## the task
 

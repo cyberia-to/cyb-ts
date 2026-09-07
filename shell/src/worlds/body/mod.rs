@@ -50,6 +50,7 @@ struct BodyView {
     #[cfg(target_os = "macos")]
     intensity: String,
     prover: prover::ProverStat,
+    prover_intensity: String,
     nets: Vec<networks::NetState>,
     relayed: u64,
     relay_pending: u64,
@@ -69,6 +70,10 @@ struct IntensityButton(&'static str);
 /// The prove/stop lever on the zheng card.
 #[derive(Component)]
 struct ProveButton;
+
+/// The prover fleet's duty lever: max (all cores) / eco (half) / min (one).
+#[derive(Component)]
+struct ProverIntensityButton(&'static str);
 
 impl Plugin for BodyWorldPlugin {
     fn build(&self, app: &mut App) {
@@ -96,6 +101,7 @@ impl Plugin for BodyWorldPlugin {
                 handle_mine_press,
                 handle_intensity_press,
                 handle_prove_press,
+                handle_prover_intensity_press,
             )
                 .run_if(in_state(WorldState::Body)),
         );
@@ -221,6 +227,7 @@ fn tick_view(
     *timer = 0.0;
     view.vitals = link.telemetry.snapshot();
     view.prover = link.prover.stat.lock().map(|s| s.clone()).unwrap_or_default();
+    view.prover_intensity = prover::intensity();
     view.nets = link.nets.snapshot();
     view.relayed = link.relay.sent.load(std::sync::atomic::Ordering::Relaxed);
     view.relay_pending = link.relay.pending.load(std::sync::atomic::Ordering::Relaxed);
@@ -610,8 +617,8 @@ fn build_prover_card(commands: &mut Commands, page: Entity, view: &BodyView) -> 
             commands,
             card,
             format!(
-                "tickets {} verified  last {:.1}ms  graph n={} axons {}{}",
-                p.tickets, p.last_ms, p.n, p.axons, fails
+                "tickets {} verified  last {:.1}ms  workers {}  graph n={} axons {}{}",
+                p.tickets, p.last_ms, p.workers, p.n, p.axons, fails
             ),
             theme::CAPTION,
             theme::TEXT_DIM,
@@ -626,28 +633,46 @@ fn build_prover_card(commands: &mut Commands, page: Entity, view: &BodyView) -> 
         text(commands, card, beacon, theme::CAPTION, theme::TEXT_DIM);
     }
 
-    let lever = commands
+    let levers = commands
         .spawn((
-            ProveButton,
-            Button,
             Node {
-                padding: UiRect::axes(Val::Px(theme::G * 1.5), Val::Px(theme::G * 0.5)),
-                border: UiRect::all(Val::Px(1.0)),
-                align_self: AlignSelf::FlexStart,
+                flex_direction: FlexDirection::Row,
+                column_gap: Val::Px(theme::G),
+                align_items: AlignItems::Center,
                 ..default()
             },
-            BackgroundColor(theme::DARK_BASE),
-            BorderColor::all(if p.running { theme::ACID_GREEN } else { theme::BORDER }),
             ChildOf(card),
         ))
         .id();
-    text(
-        commands,
-        lever,
-        if p.running { "stop" } else { "prove" }.into(),
-        theme::CAPTION,
-        if p.running { theme::ACID_GREEN } else { theme::TEXT_PRIMARY },
-    );
+    let lever = |commands: &mut Commands, parent: Entity, label: String, active: bool| -> Entity {
+        let b = commands
+            .spawn((
+                Button,
+                Node {
+                    padding: UiRect::axes(Val::Px(theme::G * 1.5), Val::Px(theme::G * 0.5)),
+                    border: UiRect::all(Val::Px(1.0)),
+                    ..default()
+                },
+                BackgroundColor(theme::DARK_BASE),
+                BorderColor::all(if active { theme::ACID_GREEN } else { theme::BORDER }),
+                ChildOf(parent),
+            ))
+            .id();
+        commands.spawn((
+            Text::new(label),
+            TextFont { font_size: theme::CAPTION, ..default() },
+            TextColor(if active { theme::ACID_GREEN } else { theme::TEXT_PRIMARY }),
+            ChildOf(b),
+        ));
+        b
+    };
+    let b = lever(commands, levers, if p.running { "stop" } else { "prove" }.into(), p.running);
+    commands.entity(b).insert(ProveButton);
+    text(commands, levers, "fleet".into(), theme::CAPTION, theme::TEXT_DIM);
+    for mode in ["max", "eco", "min"] {
+        let b = lever(commands, levers, mode.into(), view.prover_intensity == mode);
+        commands.entity(b).insert(ProverIntensityButton(mode));
+    }
 
     let per_proof = declared_rate("per_proof", 1.0);
     let accrued = p.lifetime as f64 * per_proof;
@@ -886,6 +911,19 @@ fn handle_prove_press(
             let _ = std::fs::write(proving_wanted_file(), "on");
             notice.show("proving over your graph - every ticket verified");
         }
+    }
+}
+
+fn handle_prover_intensity_press(
+    interactions: Query<(&Interaction, &ProverIntensityButton), Changed<Interaction>>,
+    mut notice: ResMut<super::Notice>,
+) {
+    for (i, b) in &interactions {
+        if *i != Interaction::Pressed {
+            continue;
+        }
+        prover::set_intensity(b.0);
+        notice.show(format!("prover fleet -> {} (live)", b.0));
     }
 }
 

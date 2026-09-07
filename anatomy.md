@@ -34,8 +34,9 @@ the robot is one organism with **20 parts in six layers**. every surface — the
 | **sense** | the messenger — interaction with other neurons, particles, robots | seed exists (`money_to_sense`, notices); grows into the robot's inbox/outbox |
 | **voice** | speech — the robot heard and speaking | to grow |
 | **vision** | sight — camera, screen, world | to grow |
+| **state** | verified perception of external networks: every answer is a value **plus a tier** (T0 proof-verified · T1 anchor-verified · T3 unproven RPC, badged); one query IR, a proof-router, local verification over provider truth | doctrine written — [[cyb/state|state]] |
 
-## IV · economy — what it owns
+## IV · value — what it holds
 
 | part | is | today |
 |---|---|---|
@@ -50,14 +51,13 @@ the robot is one organism with **20 parts in six layers**. every surface — the
 | **plan** | the schedule: standing orders, deferred intents | seed exists (mining standing order); generalizes |
 | **time** | one screen: log ← **now** → plan, the present in the middle | to build; the flagship view |
 
-## VI · substrate — what it stands on
+## VI · flesh — what it is made of
 
 | part | is | today |
 |---|---|---|
 | **body** | the physical body: silicon, sensors, energy, mining — telemetry and resources of the machine the robot lives on | live (default world: telemetry, erga child, PUSSY/day) |
 | **cell** | an organ-extension: a live-loaded program that grows the robot a new ability | live (rune cell runtime). ⚠ distinct from the protocol's [[cell]] (a 4D particle group) — the robot grows *cells as organs* |
 | **radio** | the physical layer of communication with external networks; [[sense]] speaks over radio | live — the cyber-radio transport; the wire obeys the graph: follow/antenna/socket are cyberlinks |
-| **state** | verified perception of external networks: every answer is a value **plus a tier** (T0 proof-verified · T1 anchor-verified · T3 unproven RPC, badged); one query IR, a proof-router, local verification over provider truth | doctrine written — [[cyb/state|state]] |
 
 ## deliberately absent
 
