@@ -7,7 +7,7 @@ crystal-domain: cyb
 ---
 # anatomy — the source of truth
 
-the robot is one organism with **19 parts in six layers**. every surface — the app's worlds, the docs, [cyb.ai](https://cyb.ai), the crates — names things by this page. a page that cannot be traced to a part is either legacy or component matter.
+the robot is one organism with **20 parts in six layers**. every surface — the app's worlds, the docs, [cyb.ai](https://cyb.ai), the crates — names things by this page. a page that cannot be traced to a part is either legacy or component matter.
 
 ## I · identity — who
 
@@ -57,6 +57,7 @@ the robot is one organism with **19 parts in six layers**. every surface — the
 | **body** | the physical body: silicon, sensors, energy, mining — telemetry and resources of the machine the robot lives on | live (default world: telemetry, erga child, PUSSY/day) |
 | **cell** | an organ-extension: a live-loaded program that grows the robot a new ability | live (rune cell runtime). ⚠ distinct from the protocol's [[cell]] (a 4D particle group) — the robot grows *cells as organs* |
 | **radio** | the physical layer of communication with external networks; [[sense]] speaks over radio | live — the cyber-radio transport; the wire obeys the graph: follow/antenna/socket are cyberlinks |
+| **state** | verified perception of external networks: every answer is a value **plus a tier** (T0 proof-verified · T1 anchor-verified · T3 unproven RPC, badged); one query IR, a proof-router, local verification over provider truth | doctrine written — [[cyb/state|state]] |
 
 ## deliberately absent
 
