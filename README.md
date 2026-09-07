@@ -21,4 +21,4 @@ or open [cyb.ai](https://cyb.ai) and begin linking.
 
 [[cyber]] · [[soft3]] · [[bootloader]] · [[install]] · [[cyb/philosophy]]
 
-the robot is one organism: **[[cyb/anatomy|anatomy]]** is the source of truth — 20 parts, six layers; every doc, world, and crate names things by it
+the robot is one organism: **[[cyb/anatomy|anatomy]]** is the source of truth — 21 parts, six layers; every doc, world, and crate names things by it

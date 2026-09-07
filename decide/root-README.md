@@ -10,7 +10,7 @@ crystal-size: deep
 
 ownable autonomous intelligence. the only mind a person can hold and not rent.
 
-→ see [[cyb/root/product]] for the market thesis (~$60T wage bill, ~68B Robot ceiling, virtual entry, embodied upgrade)
+→ see [[cyb/product/product]] for the market thesis (~$60T wage bill, ~68B Robot ceiling, virtual entry, embodied upgrade)
 
 ---
 
@@ -109,7 +109,7 @@ endowment > 0  AND  H > 0
 
 when H crosses critical, the Robot posts a bounty against endowment and goes dormant. a neighbor may revive it by fulfilling the bounty. when both reach zero, the Robot dies.
 
-a Robot is a capital asset. its endowment compounds, its karma accumulates, its Avatar appreciates. it can be sold, willed, or collateralized at any block — see [[cyb/root/product]].
+a Robot is a capital asset. its endowment compounds, its karma accumulates, its Avatar appreciates. it can be sold, willed, or collateralized at any block — see [[cyb/product/product]].
 
 ---
 
@@ -139,7 +139,7 @@ the 1:1:1 rule governs structure. the ownership rule governs scale.
 
 ## see also
 
-- [[cyb/root/product]] — market thesis, TAM, the rent → own gap
+- [[cyb/product/product]] — market thesis, TAM, the rent → own gap
 - [[soma]] — cognition runtime
 - [[plumb]] — value layer (TSP-1, TSP-2, PLUMB)
 - [[prysm/chroma]] — presentation chrome

@@ -7,7 +7,7 @@ crystal-domain: cyb
 ---
 # anatomy — the source of truth
 
-the robot is one organism with **20 parts in six layers**. every surface — the app's worlds, the docs, [cyb.ai](https://cyb.ai), the crates — names things by this page. a page that cannot be traced to a part is either legacy or component matter.
+the robot is one organism with **21 parts in six layers**. every surface — the app's worlds, the docs, [cyb.ai](https://cyb.ai), the crates — names things by this page. a page that cannot be traced to a part is either legacy or component matter.
 
 ## I · identity — who
 
@@ -16,6 +16,7 @@ the robot is one organism with **20 parts in six layers**. every surface — the
 | **name** | the NFT resolver — the robot's name resolves through the graph ([[moon-passport]] lineage), owned like a token, not set in a config | ports with the soft3 genesis |
 | **avatar** | the robot's visualization — its model, the rendered creature others see and you recognize | to grow; the robot world's creature is its seed |
 | **soul** | the main config: one file defining processing when the robot is asked — which model, which dialect, what it may do unasked | `~/cyb/soul` to define; soma settings are its embryo |
+| **ward** | the enforcer of the soul: the permission boundary every runtime's act passes through — holds the caps, performs or refuses, prompts the neuron | live — the effect router; doctrine at [[cyb/parts/ward|ward]] |
 
 ## II · mind — what thinks
 
@@ -23,7 +24,7 @@ the robot is one organism with **20 parts in six layers**. every surface — the
 |---|---|---|
 | **soma** | mind and model: local inference, weights, silicon | live — soma kernel + honeycrisp, `? q` in com |
 | **brain** | the rendered graph | live as the world currently named *graph* (mir, 100+ fps) → renames to **brain** |
-| **memory** | particles rendered as a file system — table or tiles, tap to read | half-live: tap-to-read pages + [[cyb/root/fs|fs]] become its spec; a projection of brain, one key flips brain ⇄ memory |
+| **memory** | particles rendered as a file system — table or tiles, tap to read | half-live: tap-to-read pages + [[cyb/parts/fs|fs]] become its spec; a projection of brain, one key flips brain ⇄ memory |
 
 ## III · senses and speech — what perceives and says
 
@@ -34,7 +35,7 @@ the robot is one organism with **20 parts in six layers**. every surface — the
 | **sense** | the messenger — interaction with other neurons, particles, robots | seed exists (`money_to_sense`, notices); grows into the robot's inbox/outbox |
 | **voice** | speech — the robot heard and speaking | to grow |
 | **vision** | sight — camera, screen, world | to grow |
-| **state** | verified perception of external networks: every answer is a value **plus a tier** (T0 proof-verified · T1 anchor-verified · T3 unproven RPC, badged); one query IR, a proof-router, local verification over provider truth | doctrine written — [[cyb/state|state]] |
+| **state** | verified perception of external networks: every answer is a value **plus a tier** (T0 proof-verified · T1 anchor-verified · T3 unproven RPC, badged); one query IR, a proof-router, local verification over provider truth | doctrine written — [[cyb/parts/state|state]] |
 
 ## IV · value — what it holds
 
@@ -69,7 +70,7 @@ the robot is one organism with **20 parts in six layers**. every surface — the
 
 ## alignment phases
 
-1. **docs** — [[cyb/root/robot|robot]], [[cyb/root/spec|spec]], [[cyb/root/product|product]], [[cyb/root/os|os]] restate themselves as expansions of parts; anything untraceable goes legacy (per [[restructure]])
+1. **docs** — [[cyb/product/robot|robot]], [[cyb/product/spec|spec]], [[cyb/product/product|product]], [[cyb/decide/os|os]] restate themselves as expansions of parts; anything untraceable goes legacy (per [[restructure]])
 2. **app** — world *graph* → *brain*; com becomes chrome; *now* indicator; *time* world from tape + standing orders
 3. **landing** — cyb.ai lists the anatomy, one line per part
 4. **code** — crates and modules adopt part names; `~/cyb/soul` file is born
