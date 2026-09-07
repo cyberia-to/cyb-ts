@@ -51,6 +51,7 @@ struct BodyView {
     intensity: String,
     prover: prover::ProverStat,
     prover_intensity: String,
+    checkpoint_in: Option<u64>,
     nets: Vec<networks::NetState>,
     relayed: u64,
     relay_pending: u64,
@@ -91,6 +92,7 @@ impl Plugin for BodyWorldPlugin {
             nets,
         })
         .init_resource::<BodyView>()
+        .init_resource::<ProofMeter>()
         .add_systems(OnEnter(WorldState::Body), build_page)
         .add_systems(OnExit(WorldState::Body), destroy_page)
         .add_systems(
@@ -141,13 +143,20 @@ fn proving_wanted_file() -> std::path::PathBuf {
     std::path::Path::new(&home).join("cyb").join("proving")
 }
 
-fn resume_proving(link: Res<BodyLink>, shared: Res<super::SharedCell>) {
+fn resume_proving(
+    link: Res<BodyLink>,
+    shared: Res<super::SharedCell>,
+    mut meter: ResMut<ProofMeter>,
+    who: Res<super::identity::Identity>,
+    mut inbox: ResMut<super::ComInbox>,
+) {
     let wanted = std::fs::read_to_string(proving_wanted_file())
         .map(|s| s.trim() == "on")
         .unwrap_or(false);
     if wanted && !link.prover.is_running() {
         let axons = shared.cell.lock().expect("shared cell poisoned").axons();
         link.prover.prove(axons, link.nets.clone());
+        cast_prove_start(&mut meter, &link, &shared, &who, &mut inbox);
     }
 }
 
@@ -156,38 +165,80 @@ fn resume_proving(link: Res<BodyLink>, shared: Res<super::SharedCell>) {
 /// cast into the local cell like any other signal. The relay carries it,
 /// one signal one block: a body that only proves still moves the chain,
 /// and the proven work is metered ON the chain instead of only in a file.
+///
+/// The meter arms the moment the fleet sails (prove press / resume), and
+/// the start itself is cast — the chain answers within one relay pass,
+/// so pressing prove visibly moves h in seconds, not minutes.
 const CHECKPOINT_EVERY_S: f32 = 120.0;
+
+/// The proving meter: armed while the fleet rows.
+#[derive(Resource, Default)]
+pub(crate) struct ProofMeter {
+    wait: f32,
+    last_count: u64,
+    armed: bool,
+}
+
+impl ProofMeter {
+    /// Seconds until the next checkpoint cast (for the card).
+    fn next_in(&self) -> u64 {
+        (CHECKPOINT_EVERY_S - self.wait).max(0.0) as u64
+    }
+}
+
+/// Arm the meter and cast the departure: proving began, weight 1.
+fn cast_prove_start(
+    meter: &mut ProofMeter,
+    link: &BodyLink,
+    shared: &super::SharedCell,
+    who: &super::identity::Identity,
+    inbox: &mut super::ComInbox,
+) {
+    meter.wait = 0.0;
+    meter.last_count = link.prover.stat.lock().map(|s| s.lifetime).unwrap_or(0);
+    meter.armed = true;
+    super::content::remember("zheng");
+    super::content::remember("pussy");
+    let cast = {
+        let mut cell = shared.cell.lock().expect("shared cell poisoned");
+        cell.cast_weighted(
+            who.neuron,
+            [(super::content::particle_of("zheng"), super::content::particle_of("pussy"), 1)],
+        )
+    };
+    if cast.is_ok() {
+        shared.bump();
+        inbox.0.push(super::ComSay::Note("proving began - cast to the chain".into()));
+    }
+}
 
 fn proof_checkpoint(
     time: Res<Time>,
-    mut wait: Local<f32>,
-    mut last_count: Local<u64>,
+    mut meter: ResMut<ProofMeter>,
     link: Res<BodyLink>,
     shared: Res<super::SharedCell>,
     who: Res<super::identity::Identity>,
     mut inbox: ResMut<super::ComInbox>,
 ) {
-    *wait += time.delta_secs();
-    if *wait < CHECKPOINT_EVERY_S {
+    if !meter.armed || !link.prover.is_running() {
         return;
     }
-    *wait = 0.0;
+    meter.wait += time.delta_secs();
+    if meter.wait < CHECKPOINT_EVERY_S {
+        return;
+    }
+    meter.wait = 0.0;
     let lifetime = link
         .prover
         .stat
         .lock()
         .map(|s| s.lifetime)
         .unwrap_or(0);
-    if *last_count == 0 {
-        // First sight of the counter: checkpoint deltas from here on.
-        *last_count = lifetime;
-        return;
-    }
-    let delta = lifetime.saturating_sub(*last_count);
+    let delta = lifetime.saturating_sub(meter.last_count);
     if delta == 0 {
         return;
     }
-    *last_count = lifetime;
+    meter.last_count = lifetime;
     super::content::remember("zheng");
     super::content::remember("pussy");
     let cast = {
@@ -218,6 +269,7 @@ fn tick_view(
     time: Res<Time>,
     mut timer: Local<f32>,
     link: Res<BodyLink>,
+    meter: Res<ProofMeter>,
     mut view: ResMut<BodyView>,
 ) {
     *timer += time.delta_secs();
@@ -228,6 +280,7 @@ fn tick_view(
     view.vitals = link.telemetry.snapshot();
     view.prover = link.prover.stat.lock().map(|s| s.clone()).unwrap_or_default();
     view.prover_intensity = prover::intensity();
+    view.checkpoint_in = meter.armed.then(|| meter.next_in());
     view.nets = link.nets.snapshot();
     view.relayed = link.relay.sent.load(std::sync::atomic::Ordering::Relaxed);
     view.relay_pending = link.relay.pending.load(std::sync::atomic::Ordering::Relaxed);
@@ -631,6 +684,15 @@ fn build_prover_card(commands: &mut Commands, page: Entity, view: &BodyView) -> 
             None => "beacon: none yet - tickets unbound until a network answers".into(),
         };
         text(commands, card, beacon, theme::CAPTION, theme::TEXT_DIM);
+        if let Some(secs) = view.checkpoint_in {
+            text(
+                commands,
+                card,
+                format!("next work checkpoint -> chain in {secs}s"),
+                theme::CAPTION,
+                theme::TEXT_DIM,
+            );
+        }
     }
 
     let levers = commands
@@ -896,6 +958,9 @@ fn handle_prove_press(
     link: Res<BodyLink>,
     shared: Res<super::SharedCell>,
     mut notice: ResMut<super::Notice>,
+    mut meter: ResMut<ProofMeter>,
+    who: Res<super::identity::Identity>,
+    mut inbox: ResMut<super::ComInbox>,
 ) {
     for i in &interactions {
         if *i != Interaction::Pressed {
@@ -903,13 +968,15 @@ fn handle_prove_press(
         }
         if link.prover.is_running() {
             link.prover.stop();
+            meter.armed = false;
             let _ = std::fs::write(proving_wanted_file(), "off");
             notice.show("prover stopped - the count is kept");
         } else {
             let axons = shared.cell.lock().expect("shared cell poisoned").axons();
             link.prover.prove(axons, link.nets.clone());
             let _ = std::fs::write(proving_wanted_file(), "on");
-            notice.show("proving over your graph - every ticket verified");
+            cast_prove_start(&mut meter, &link, &shared, &who, &mut inbox);
+            notice.show("proving - the chain hears about it in seconds");
         }
     }
 }
