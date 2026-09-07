@@ -108,3 +108,5 @@ robot image, and spaces the sections.
 - **P3** button → `CellAction` → navigate; add `checkout.rune`
 - **P4** radio-backed `load_cell` (publish a particle to update the live app)
 - **P5** `query` act → inf/cybergraph live data in a cell
+
+the city where the buildings stand is [[aos]] — portal, teleport, oracle, temple and the rest are cells the robot walks into

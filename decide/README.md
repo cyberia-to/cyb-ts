@@ -12,7 +12,6 @@ nothing here is deleted; each file carries one open question. answer a question 
 | [[cyb/decide/whitepaper|whitepaper]] | "cyb: the immortal robot" — merge its living claims into product and archive, or keep as a standalone paper? |
 | [[cyb/decide/root-README|root-README]] | the old robot intro — duplicates [[cyb/product/robot|robot]]; which text is canon? |
 | [[cyb/decide/dev|dev]] | the dev-board pointer — refresh to current boards or retire? |
-| [[cyb/decide/oracle|oracle]] · [[cyb/decide/portal|portal]] | described as "cells in cyb" — are search and onboarding cells still planned organs, or JS-era vocabulary? |
 | [[cyb/decide/compile|compile]] · [[cyb/decide/context|context]] · [[cyb/decide/model-lifecycle|model-lifecycle]] | ct0/model matter — move to [[tru]] docs per [[restructure]], or keep local mirrors? |
 | [[cyb/decide/runtime|runtime]] · [[cyb/decide/hardware|hardware]] | inference-stack matter — move to [[honeycrisp]]? |
 | [[cyb/decide/order|order]] | execution unit — move to [[nox]]? |
