@@ -2959,7 +2959,7 @@ dependencies = [
 
 [[package]]
 name = "cyber-lens-assayer"
-version = "0.1.2"
+version = "0.1.1"
 dependencies = [
  "cyber-lens-brakedown",
  "cyber-lens-core",
@@ -2969,7 +2969,7 @@ dependencies = [
 
 [[package]]
 name = "cyber-lens-binius"
-version = "0.1.2"
+version = "0.1.1"
 dependencies = [
  "cyber-hemera",
  "cyber-lens-core",
@@ -2978,7 +2978,7 @@ dependencies = [
 
 [[package]]
 name = "cyber-lens-brakedown"
-version = "0.1.2"
+version = "0.1.1"
 dependencies = [
  "cyber-hemera",
  "cyber-lens-core",
@@ -2997,7 +2997,7 @@ dependencies = [
 
 [[package]]
 name = "cyber-lens-ikat"
-version = "0.1.2"
+version = "0.1.1"
 dependencies = [
  "cyber-lens-brakedown",
  "cyber-lens-core",
@@ -3007,7 +3007,7 @@ dependencies = [
 
 [[package]]
 name = "cyber-lens-porphyry"
-version = "0.1.2"
+version = "0.1.1"
 dependencies = [
  "cyber-hemera",
  "cyber-lens-core",

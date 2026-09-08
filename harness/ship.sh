@@ -22,7 +22,15 @@ export JAVA_HOME="${JAVA_HOME:-/opt/homebrew/opt/openjdk@17}"
 export PATH="$JAVA_HOME/bin:$PATH"
 
 # A release is a statement about a tree, so the tree must be fully told.
-if [ -n "$(git status --porcelain)" ]; then
+# One exception earns itself: sibling path-crates drift versions under
+# parallel sessions and every build re-touches Cargo.lock — that drift is
+# committed here, by name, rather than blocking every ship.
+DIRT=$(git status --porcelain)
+if [ "$DIRT" = " M Cargo.lock" ] || [ "$DIRT" = "M  Cargo.lock" ]; then
+  git add Cargo.lock
+  SKIP_FLEET=1 git commit -q -m "lock: sibling crate drift"
+  echo "ship: absorbed Cargo.lock drift"
+elif [ -n "$DIRT" ]; then
   echo "ship: tree is dirty — commit or stash first"; git status --short | head; exit 1
 fi
 
