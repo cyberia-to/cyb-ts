@@ -20,9 +20,9 @@ struct ChainMoneyLabel;
 #[derive(Component)]
 struct ChainReceiptLabel;
 #[derive(Component)]
-struct ChainRefreshBtn;
-#[derive(Component)]
 struct ChainSendBtn;
+#[derive(Component)]
+struct ChainAddrBtn;
 
 #[derive(Component)]
 struct SigmaRoot;
@@ -96,19 +96,13 @@ impl Plugin for SigmaWorldPlugin {
             .add_systems(OnExit(WorldState::Sigma), destroy_sigma)
             .add_systems(
                 Update,
-                (
-                    handle_sigma_buttons,
-                    refresh_sigma_labels,
-                    handle_chain_buttons,
-                    refresh_chain_labels,
-                    poll_chain,
-                )
+                (handle_chain_buttons, refresh_chain_labels, poll_chain)
                     .run_if(in_state(WorldState::Sigma)),
             );
     }
 }
 
-fn setup_sigma(mut commands: Commands, state: Res<SigmaState>) {
+fn setup_sigma(mut commands: Commands, _state: Res<SigmaState>) {
     let top = CHROME_TOP_H + 12.0;
     let bottom = CHROME_BOTTOM_H + 12.0;
     commands
@@ -160,97 +154,53 @@ fn setup_sigma(mut commands: Commands, state: Res<SigmaState>) {
                 TextFont { font_size: 13.0, ..default() },
                 TextColor(Color::srgb(0.55, 0.6, 0.65)),
             ));
+            // One lever: send. It folds the commander into a pay form
+            // (recipient + amount). Everything else is automatic — the
+            // balance polls itself, every pay finalizes in its own block.
             root.spawn(Node {
                 flex_direction: FlexDirection::Row,
                 column_gap: Val::Px(8.0),
                 ..default()
             })
             .with_children(|row| {
-                for (label, is_send) in [("refresh chain", false), ("send 1000 -> friend", true)] {
-                    let mut b = row.spawn((
-                        Button,
-                        Node {
-                            padding: UiRect::axes(Val::Px(14.0), Val::Px(8.0)),
-                            border: UiRect::all(Val::Px(1.0)),
-                            ..default()
-                        },
-                        BackgroundColor(theme::DARK_BASE),
-                        BorderColor::all(Color::srgb(0.2, 0.5, 0.35)),
+                row.spawn((
+                    ChainSendBtn,
+                    Button,
+                    Node {
+                        padding: UiRect::axes(Val::Px(22.0), Val::Px(8.0)),
+                        border: UiRect::all(Val::Px(1.0)),
+                        ..default()
+                    },
+                    BackgroundColor(theme::DARK_BASE),
+                    BorderColor::all(Color::srgb(0.2, 0.5, 0.35)),
+                ))
+                .with_children(|inner| {
+                    inner.spawn((
+                        Text::new("send"),
+                        TextFont { font_size: 14.0, ..default() },
+                        TextColor(Color::srgb(0.8, 0.9, 0.85)),
                     ));
-                    if is_send {
-                        b.insert(ChainSendBtn);
-                    } else {
-                        b.insert(ChainRefreshBtn);
-                    }
-                    b.with_children(|inner| {
-                        inner.spawn((
-                            Text::new(label),
-                            TextFont { font_size: 14.0, ..default() },
-                            TextColor(Color::srgb(0.8, 0.9, 0.85)),
-                        ));
-                    });
-                }
+                });
+                row.spawn((
+                    ChainAddrBtn,
+                    Button,
+                    Node {
+                        padding: UiRect::axes(Val::Px(14.0), Val::Px(8.0)),
+                        border: UiRect::all(Val::Px(1.0)),
+                        ..default()
+                    },
+                    BackgroundColor(theme::DARK_BASE),
+                    BorderColor::all(theme::BORDER),
+                ))
+                .with_children(|inner| {
+                    inner.spawn((
+                        Text::new("copy my address"),
+                        TextFont { font_size: 14.0, ..default() },
+                        TextColor(Color::srgb(0.6, 0.65, 0.7)),
+                    ));
+                });
             });
-            root.spawn((
-                Text::new("pay <to> <amount> in the commander sends anywhere"),
-                TextFont { font_size: 12.0, ..default() },
-                TextColor(Color::srgb(0.4, 0.45, 0.5)),
-            ));
-            root.spawn((
-                SigmaStatusLabel,
-                Text::new(state.status.clone()),
-                TextFont {
-                    font_size: 13.0,
-                    ..default()
-                },
-                TextColor(Color::srgb(0.55, 0.6, 0.65)),
-            ));
-            root.spawn((
-                SigmaBalanceLabel,
-                Text::new(balance_text(&state)),
-                TextFont {
-                    font_size: 28.0,
-                    ..default()
-                },
-                TextColor(Color::srgb(0.95, 0.9, 0.4)),
-            ));
 
-            // buttons row
-            root.spawn(Node {
-                flex_direction: FlexDirection::Row,
-                column_gap: Val::Px(8.0),
-                ..default()
-            })
-            .with_children(|row| {
-                for (label, btn) in [
-                    ("fund +100", SigmaBtn::Fund),
-                    ("send 10 -> bob", SigmaBtn::Send),
-                    ("finalize", SigmaBtn::Finalize),
-                    ("refresh", SigmaBtn::Refresh),
-                ] {
-                    row.spawn((
-                        btn,
-                        Button,
-                        Node {
-                            padding: UiRect::axes(Val::Px(14.0), Val::Px(8.0)),
-                            border: UiRect::all(Val::Px(1.0)),
-                            ..default()
-                        },
-                        BackgroundColor(theme::DARK_BASE),
-                        BorderColor::all(theme::BORDER),
-                    ))
-                    .with_children(|b| {
-                        b.spawn((
-                            Text::new(label),
-                            TextFont {
-                                font_size: 14.0,
-                                ..default()
-                            },
-                            TextColor(Color::srgb(0.75, 0.9, 0.8)),
-                        ));
-                    });
-                }
-            });
 
             // No event list here. Everything this page does is said in com,
             // where it can be scrolled back through; repeating the last twelve
@@ -266,6 +216,7 @@ fn destroy_sigma(mut commands: Commands, q: Query<Entity, With<SigmaRoot>>) {
     }
 }
 
+#[allow(dead_code)] // demo wallet retired; kept until MoneyWallet grows a real role
 fn handle_sigma_buttons(
     mut interactions: Query<(&Interaction, &SigmaBtn), Changed<Interaction>>,
     mut state: ResMut<SigmaState>,
@@ -358,6 +309,7 @@ fn drain_sense_parts(wallet: &mut MoneyWallet, log: &mut Vec<String>) {
     }
 }
 
+#[allow(dead_code)]
 fn refresh_sigma_labels(
     state: Res<SigmaState>,
     mut bal: Query<
@@ -449,24 +401,29 @@ fn refresh_chain_on_enter(
 }
 
 fn handle_chain_buttons(
-    refreshes: Query<&Interaction, (Changed<Interaction>, With<ChainRefreshBtn>)>,
     sends: Query<&Interaction, (Changed<Interaction>, With<ChainSendBtn>)>,
-    money: Option<Res<chain::ChainMoney>>,
-    hub: Option<Res<crate::worlds::body::BodyLinkHub>>,
+    addrs: Query<&Interaction, (Changed<Interaction>, With<ChainAddrBtn>)>,
+    chrome: Option<ResMut<crate::shell::chrome::ChromeState>>,
     who: Option<Res<crate::worlds::identity::Identity>>,
+    notice: Option<ResMut<crate::worlds::Notice>>,
 ) {
-    let (Some(money), Some(hub), Some(who)) = (money, hub, who) else { return };
-    let refresh = refreshes.iter().any(|i| *i == Interaction::Pressed);
     let send = sends.iter().any(|i| *i == Interaction::Pressed);
-    if !refresh && !send {
+    let addr = addrs.iter().any(|i| *i == Interaction::Pressed);
+    if !send && !addr {
         return;
     }
-    let Some(url) = chain::chain_url(&hub.0) else { return };
-    let hex = chain::neuron_hex(&who);
     if send {
-        money.pay(url, hex, "friend".into(), 1000);
-    } else {
-        money.refresh(url, hex);
+        // The commander folds into the pay form: recipient, then amount.
+        if let Some(mut chrome) = chrome {
+            chrome.pay = Some(crate::shell::chrome::PayDraft::default());
+            chrome.focused = true;
+        }
+    } else if let (Some(who), Some(mut notice)) = (who, notice) {
+        let hex = chain::neuron_hex(&who);
+        match crate::shell::clipboard::write_clipboard(&hex) {
+            Ok(()) => notice.show("address copied - share it to receive"),
+            Err(e) => notice.show(format!("clipboard: {e}")),
+        }
     }
 }
 

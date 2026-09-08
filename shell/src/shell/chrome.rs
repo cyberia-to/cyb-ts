@@ -18,9 +18,20 @@ const TABS_H: f32 = 48.0;
 /// Both bottom rows plus the gap between them.
 pub const CHROME_BOTTOM_H: f32 = COMMANDER_H + 6.0 + TABS_H;
 
+/// The commander folded into a payment form: two fields, one act.
+#[derive(Clone, Default)]
+pub struct PayDraft {
+    pub to: String,
+    pub amount: String,
+    /// 0 = recipient, 1 = amount.
+    pub field: u8,
+}
+
 #[derive(Resource)]
 pub struct ChromeState {
     pub focused: bool,
+    /// Some = the commander is a pay form right now.
+    pub pay: Option<PayDraft>,
     /// Set when something other than the keyboard decided the line is done —
     /// the soft keyboard's "go", which arrives as text rather than a key.
     pub submit_now: bool,
@@ -33,6 +44,7 @@ impl Default for ChromeState {
     fn default() -> Self {
         Self {
             focused: false,
+            pay: None,
             submit_now: false,
             just_submitted: false,
             text: String::new(),
@@ -71,6 +83,12 @@ struct CommanderPrompt;
 struct CommanderText;
 #[derive(Component)]
 struct CommanderSubmit;
+
+/// The second field of the pay form (amount), hidden in normal mode.
+#[derive(Component)]
+struct PayAmountBox;
+#[derive(Component)]
+struct PayAmountText;
 /// A tap-target for one world — the touch counterpart of Cmd+1..4, and the
 /// only world navigation Android has until gestures land.
 #[derive(Component)]
@@ -289,6 +307,33 @@ fn spawn_chrome(mut commands: Commands) {
                             cmd.spawn((
                                 CommanderText,
                                 Text::new("ask, search, transact..."),
+                                TextFont { font_size: 14.0, ..default() },
+                                TextColor(Color::srgba(0.30, 0.30, 0.40, 0.55)),
+                            ));
+                        });
+
+                        // The pay form's second field: appears when the
+                        // commander folds into "to | amount".
+                        row.spawn((
+                            PayAmountBox,
+                            Node {
+                                width: Val::Px(220.0),
+                                height: Val::Px(COMMANDER_H),
+                                flex_direction: FlexDirection::Row,
+                                align_items: AlignItems::Center,
+                                padding: UiRect::horizontal(Val::Px(14.0)),
+                                border: UiRect::all(Val::Px(1.0)),
+                                border_radius: BorderRadius::all(Val::Px(COMMANDER_H / 2.0)),
+                                display: Display::None,
+                                ..default()
+                            },
+                            BackgroundColor(theme::DARK_BASE),
+                            BorderColor::all(theme::BORDER),
+                        ))
+                        .with_children(|b| {
+                            b.spawn((
+                                PayAmountText,
+                                Text::new("amount"),
                                 TextFont { font_size: 14.0, ..default() },
                                 TextColor(Color::srgba(0.30, 0.30, 0.40, 0.55)),
                             ));
@@ -591,9 +636,62 @@ fn update_address_bar(
 fn update_commander_display(
     chrome: Res<ChromeState>,
     mut q: Query<(&mut Text, &mut TextColor), With<CommanderText>>,
+    mut prompt_q: Query<&mut Text, (With<CommanderPrompt>, Without<CommanderText>, Without<PayAmountText>)>,
+    mut amount_box: Query<&mut Node, With<PayAmountBox>>,
+    mut amount_q: Query<(&mut Text, &mut TextColor), (With<PayAmountText>, Without<CommanderText>)>,
 ) {
     if !chrome.is_changed() {
         return;
+    }
+    let cursor = |s: &str, active: bool| -> String {
+        if active {
+            format!("{s}_")
+        } else if s.is_empty() {
+            " ".into()
+        } else {
+            s.to_string()
+        }
+    };
+    if let Some(pay) = &chrome.pay {
+        // The commander is a pay form: field one is the recipient,
+        // field two the amount. Enter walks forward, Escape backs out.
+        for mut t in &mut prompt_q {
+            **t = "pay to ".into();
+        }
+        for (mut text, mut color) in &mut q {
+            **text = if pay.to.is_empty() && pay.field != 0 {
+                "recipient".into()
+            } else {
+                cursor(&pay.to, pay.field == 0)
+            };
+            *color = TextColor(if pay.field == 0 {
+                Color::srgb(0.95, 0.95, 0.95)
+            } else {
+                Color::srgba(0.6, 0.6, 0.65, 0.9)
+            });
+        }
+        for mut node in &mut amount_box {
+            node.display = Display::Flex;
+        }
+        for (mut text, mut color) in &mut amount_q {
+            **text = if pay.amount.is_empty() && pay.field != 1 {
+                "amount".into()
+            } else {
+                cursor(&pay.amount, pay.field == 1)
+            };
+            *color = TextColor(if pay.field == 1 {
+                Color::srgb(0.95, 0.95, 0.95)
+            } else {
+                Color::srgba(0.6, 0.6, 0.65, 0.9)
+            });
+        }
+        return;
+    }
+    for mut t in &mut prompt_q {
+        **t = "> ".into();
+    }
+    for mut node in &mut amount_box {
+        node.display = Display::None;
     }
     for (mut text, mut color) in &mut q {
         if chrome.focused {
@@ -680,6 +778,64 @@ pub fn handle_chrome_input(world: &mut World) {
                 continue;
             }
             if cmd_held {
+                continue;
+            }
+            // The pay form owns the keys while it is open: characters land
+            // in the active field, Enter walks to the next field and then
+            // submits, Escape folds the form away.
+            if chrome.pay.is_some() {
+                let mut submit: Option<String> = None;
+                {
+                    let pay = chrome.pay.as_mut().expect("checked");
+                    match &event.logical_key {
+                        Key::Enter | Key::Tab => {
+                            if pay.field == 0 && !pay.to.is_empty() {
+                                pay.field = 1;
+                            } else if pay.field == 1 && !pay.amount.is_empty() {
+                                submit = Some(format!("pay {} {}", pay.to.trim(), pay.amount.trim()));
+                            }
+                        }
+                        Key::Escape => {
+                            chrome.pay = None;
+                            chrome.focused = false;
+                            continue;
+                        }
+                        Key::Backspace => {
+                            if pay.field == 1 && pay.amount.is_empty() {
+                                pay.field = 0;
+                            } else if pay.field == 1 {
+                                pay.amount.pop();
+                            } else {
+                                pay.to.pop();
+                            }
+                        }
+                        Key::Space if pay.field == 0 => {
+                            // Addresses and labels carry no spaces; a space
+                            // is a step to the amount.
+                            if !pay.to.is_empty() {
+                                pay.field = 1;
+                            }
+                        }
+                        Key::Character(c) => {
+                            for ch in c.chars().filter(|ch| !ch.is_control()) {
+                                if pay.field == 1 {
+                                    if ch.is_ascii_digit() {
+                                        pay.amount.push(ch);
+                                    }
+                                } else if !ch.is_whitespace() {
+                                    pay.to.push(ch);
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                if let Some(cmd) = submit {
+                    pending_cmd = Some(cmd);
+                    chrome.pay = None;
+                    chrome.focused = false;
+                    break;
+                }
                 continue;
             }
             match &event.logical_key {
