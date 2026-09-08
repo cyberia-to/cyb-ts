@@ -62,9 +62,18 @@ impl Plugin for VaultWorldPlugin {
 /// Entering the world derives the key and opens the file; the page is
 /// rebuilt from this snapshot.
 fn unseal(mut commands: Commands, mut view: ResMut<VaultView>) {
+    load_view(&mut view);
+    build_page(&mut commands, &view);
+}
+
+/// (Re)read the vault into the view. The FIRST entry is always the
+/// identity seed — the twelve words behind the pussy address and every
+/// testpussy it earned. It is read from `~/cyb/mnemonic`, never copied
+/// into vault.enc: one truth, one file, surfaced where secrets live.
+fn load_view(view: &mut VaultView) {
     view.key = store::key();
     view.error = None;
-    view.entries = match view.key {
+    let mut entries = match view.key {
         Some(k) => match store::load(&k) {
             Ok(e) => e,
             Err(e) => {
@@ -77,8 +86,28 @@ fn unseal(mut commands: Commands, mut view: ResMut<VaultView>) {
             Vec::new()
         }
     };
+    if let Some(mnemonic) = identity_mnemonic() {
+        entries.insert(
+            0,
+            store::Entry {
+                name: "identity".into(),
+                kind: "seed".into(),
+                value: mnemonic,
+                created: 0,
+            },
+        );
+    }
+    view.entries = entries;
     view.revealed = None;
-    build_page(&mut commands, &view);
+}
+
+/// The twelve words, straight from the identity file.
+fn identity_mnemonic() -> Option<String> {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+    std::fs::read_to_string(std::path::Path::new(&home).join("cyb").join("mnemonic"))
+        .map(|s| s.trim().to_string())
+        .ok()
+        .filter(|s| !s.is_empty())
 }
 
 /// Leaving drops the plaintext with the page. The copied-string tail stays
@@ -100,10 +129,33 @@ fn seal_page(
 fn tick_page(
     time: Res<Time>,
     mut timer: Local<f32>,
+    mut reload: Local<f32>,
     mut commands: Commands,
-    view: Res<VaultView>,
+    mut view: ResMut<VaultView>,
     roots: Query<Entity, With<VaultRoot>>,
 ) {
+    // Every couple of seconds, re-read the store: a `vault add`/`rm` typed
+    // while the page is open shows up without leaving the world.
+    *reload += time.delta_secs();
+    if *reload >= 2.0 {
+        *reload = 0.0;
+        let before: Vec<String> = view.entries.iter().map(|e| e.name.clone()).collect();
+        let revealed = view.revealed;
+        let mut fresh = std::mem::take(&mut *view);
+        load_view(&mut fresh);
+        let after: Vec<String> = fresh.entries.iter().map(|e| e.name.clone()).collect();
+        fresh.revealed = if before == after { revealed } else { None };
+        fresh.copied = view.copied.take();
+        *view = fresh;
+        if before != after {
+            for e in &roots {
+                commands.entity(e).despawn();
+            }
+            build_page(&mut commands, &view);
+            *timer = 0.0;
+            return;
+        }
+    }
     *timer += time.delta_secs();
     let has_otp = view.entries.iter().any(|e| e.kind == "otp");
     if *timer < 1.0 || (!has_otp && !view.is_changed()) {
@@ -224,8 +276,25 @@ fn build_page(commands: &mut Commands, view: &VaultView) {
                 ChildOf(row),
             ))
             .id();
-        text(commands, left, entry.name.clone(), theme::BODY, theme::TEXT_PRIMARY);
-        text(commands, left, entry.kind.clone(), theme::CAPTION, theme::TEXT_DIM);
+        let is_identity = i == 0 && entry.name == "identity" && entry.created == 0;
+        text(
+            commands,
+            left,
+            entry.name.clone(),
+            theme::BODY,
+            if is_identity { theme::ACID_GREEN } else { theme::TEXT_PRIMARY },
+        );
+        text(
+            commands,
+            left,
+            if is_identity {
+                "seed - the key behind your address and every PUSSY it earned".into()
+            } else {
+                entry.kind.clone()
+            },
+            theme::CAPTION,
+            theme::TEXT_DIM,
+        );
 
         let right = commands
             .spawn((
@@ -359,6 +428,9 @@ pub fn handle_command(rest: &str) -> String {
         };
         if !store::KINDS.contains(&kind) {
             return format!("vault: unknown kind {kind} - use password key seed otp custom");
+        }
+        if name == "identity" {
+            return "vault: identity is the built-in root entry - it lives in ~/cyb/mnemonic".into();
         }
         let Some(key) = store::key() else {
             return "vault: no identity aboard (~/cyb/mnemonic missing)".into();
