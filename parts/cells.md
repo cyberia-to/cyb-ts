@@ -110,3 +110,5 @@ robot image, and spaces the sections.
 - **P5** `query` act → inf/cybergraph live data in a cell
 
 the city where the buildings stand is [[aos]] — portal, teleport, oracle, temple and the rest are cells the robot walks into
+
+the robot's cell is the first rung of the [[cell]] ladder — one neuron's sovereign micro-ledger on the tape; the same primitive scales up to buildings ([[aos]]), households ([[oikos]]) and knowledge shards
