@@ -635,12 +635,13 @@ fn update_address_bar(
 
 fn update_commander_display(
     chrome: Res<ChromeState>,
+    world_state: Res<State<crate::worlds::WorldState>>,
     mut q: Query<(&mut Text, &mut TextColor), With<CommanderText>>,
     mut prompt_q: Query<&mut Text, (With<CommanderPrompt>, Without<CommanderText>, Without<PayAmountText>)>,
     mut amount_box: Query<&mut Node, With<PayAmountBox>>,
     mut amount_q: Query<(&mut Text, &mut TextColor), (With<PayAmountText>, Without<CommanderText>)>,
 ) {
-    if !chrome.is_changed() {
+    if !chrome.is_changed() && !world_state.is_changed() {
         return;
     }
     let cursor = |s: &str, active: bool| -> String {
@@ -703,7 +704,12 @@ fn update_commander_display(
             **text = display;
             *color = TextColor(Color::srgb(0.95, 0.95, 0.95));
         } else {
-            **text = "ask, search, transact...".to_string();
+            // The robot's landing asks for the one act that matters there.
+            **text = if *world_state.get() == crate::worlds::WorldState::Robot {
+                "name me:  name <your choice>".to_string()
+            } else {
+                "ask, search, transact...".to_string()
+            };
             *color = TextColor(Color::srgba(0.30, 0.30, 0.40, 0.55));
         }
     }

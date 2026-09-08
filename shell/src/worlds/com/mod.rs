@@ -469,6 +469,47 @@ fn run_pending_command(world: &mut World) {
         return;
     }
 
+    // `name <x>` — the owner names the being. The name is a particle
+    // like everything else: remembered, cast, relayed. The landing then
+    // introduces itself by it.
+    if let Some(rest) = cmd.trim().strip_prefix("name ") {
+        let name = rest.trim();
+        let said = if name.is_empty() || name.chars().count() > 24 {
+            "name <up to 24 characters>".to_string()
+        } else {
+            let path = crate::worlds::robot::name_file();
+            if let Some(dir) = path.parent() {
+                let _ = std::fs::create_dir_all(dir);
+            }
+            match std::fs::write(&path, name) {
+                Ok(()) => {
+                    use crate::worlds::content;
+                    content::remember("name");
+                    content::remember(name);
+                    let shared = world.resource::<crate::worlds::SharedCell>().clone();
+                    let neuron = world.resource::<crate::worlds::identity::Identity>().neuron;
+                    let cast = {
+                        let mut cell = shared.cell.lock().expect("shared cell poisoned");
+                        cell.cast(neuron, [(content::particle_of("name"), content::particle_of(name))])
+                    };
+                    if cast.is_ok() {
+                        shared.bump();
+                    }
+                    world
+                        .resource_mut::<bevy::prelude::NextState<crate::worlds::WorldState>>()
+                        .set(crate::worlds::WorldState::Robot);
+                    format!("I am {name} now")
+                }
+                Err(e) => format!("name: {e}"),
+            }
+        };
+        world.resource_mut::<crate::worlds::Notice>().show(said.clone());
+        world
+            .resource_mut::<crate::worlds::ComInbox>()
+            .say(crate::worlds::Speaker::System, said);
+        return;
+    }
+
     // `pay <to> <amount>` — real money moves on the chain. The response
     // carries the block it finalized in; sigma shows the fresh balance.
     if let Some(rest) = cmd.trim().strip_prefix("pay ") {

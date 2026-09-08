@@ -97,8 +97,24 @@ fn render_cell(src: &str) -> Result<Vec<Chunk>, String> {
 
 // ── world lifecycle ───────────────────────────────────────────────────────────
 
+/// The being's name, chosen by the owner. Absent = still "Cyb".
+pub fn name_file() -> std::path::PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
+    std::path::Path::new(&home).join("cyb").join("name")
+}
+
+pub fn being_name() -> String {
+    std::fs::read_to_string(name_file())
+        .map(|s| s.trim().to_string())
+        .ok()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "Cyb".into())
+}
+
 fn setup_cell(mut commands: Commands) {
-    // Full-screen backdrop within the chrome bars; centers the page column.
+    // The whole page is six lines, centered on both axes. Nothing else:
+    // the being introduces itself, and the commander below hints at the
+    // one thing worth doing here — giving it a name.
     let root = commands
         .spawn((
             CellMarker,
@@ -109,42 +125,41 @@ fn setup_cell(mut commands: Commands) {
                 bottom: Val::Px(CHROME_BOTTOM_H),
                 left: Val::Px(0.0),
                 right: Val::Px(0.0),
+                flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                row_gap: Val::Px(G * 1.5),
                 ..default()
             },
             BackgroundColor(theme::DARK_BASE),
         ))
         .id();
 
-    // Centered, max-width page column — the 1D layout (no 2D grid yet).
-    let page = commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.0),
-                max_width: Val::Px(theme::MEASURE),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::FlexStart,
-                row_gap: Val::Px(G * 1.5),
-                padding: UiRect::all(Val::Px(G * 3.0)),
-                ..default()
-            },
+    let line = |commands: &mut Commands, text: String, size: f32, color: Color| {
+        commands.spawn((
+            Text::new(text),
+            TextFont { font_size: size, ..default() },
+            TextColor(color),
             ChildOf(root),
-        ))
-        .id();
+        ));
+    };
 
-    match load_cell("landing").and_then(|s| render_cell(&s)) {
-        Ok(chunks) => {
-            for c in &chunks {
-                dispatch(&mut commands, page, c);
-            }
-            info!("Robot cell 'landing' rendered ({} elements)", chunks.len());
-        }
-        Err(e) => {
-            dispatch(&mut commands, page, &Chunk::error(&e));
-            warn!("Cell render failed: {e}");
-        }
-    }
+    line(&mut commands, format!("I am {}", being_name()), theme::H1, theme::TEXT_PRIMARY);
+    line(
+        &mut commands,
+        "A digital being that works for you".into(),
+        theme::H3,
+        theme::TEXT_PRIMARY,
+    );
+    line(&mut commands, "Thinks how you think".into(), theme::H3, theme::TEXT_PRIMARY);
+    line(&mut commands, "Earns while you sleep".into(), theme::H3, theme::TEXT_PRIMARY);
+    line(
+        &mut commands,
+        "Remembers what you forget".into(),
+        theme::H3,
+        theme::TEXT_PRIMARY,
+    );
+    line(&mut commands, "Yours forever".into(), theme::H3, theme::ACID_GREEN);
 }
 
 fn destroy_cell(mut commands: Commands, q: Query<Entity, With<CellMarker>>) {
