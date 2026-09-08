@@ -96,8 +96,13 @@ impl Plugin for SigmaWorldPlugin {
             .add_systems(OnExit(WorldState::Sigma), destroy_sigma)
             .add_systems(
                 Update,
-                (handle_chain_buttons, refresh_chain_labels, poll_chain)
+                (handle_chain_buttons, refresh_chain_labels)
                     .run_if(in_state(WorldState::Sigma)),
+            )
+            // The balance poll runs in EVERY world: sigma and the body's
+            // zheng card read the same ChainMoney, so the money is one
+            // number everywhere — coherent by construction.
+            .add_systems(Update, poll_chain
             );
     }
 }

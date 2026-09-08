@@ -52,6 +52,7 @@ struct BodyView {
     prover: prover::ProverStat,
     prover_intensity: String,
     checkpoint_in: Option<u64>,
+    chain: crate::worlds::sigma::chain::ChainMoneyState,
     nets: Vec<networks::NetState>,
     relayed: u64,
     relay_pending: u64,
@@ -270,6 +271,7 @@ fn tick_view(
     mut timer: Local<f32>,
     link: Res<BodyLink>,
     meter: Res<ProofMeter>,
+    money: Option<Res<crate::worlds::sigma::chain::ChainMoney>>,
     mut view: ResMut<BodyView>,
 ) {
     *timer += time.delta_secs();
@@ -281,6 +283,9 @@ fn tick_view(
     view.prover = link.prover.stat.lock().map(|s| s.clone()).unwrap_or_default();
     view.prover_intensity = prover::intensity();
     view.checkpoint_in = meter.armed.then(|| meter.next_in());
+    if let Some(money) = money {
+        view.chain = money.snapshot();
+    }
     view.nets = link.nets.snapshot();
     view.relayed = link.relay.sent.load(std::sync::atomic::Ordering::Relaxed);
     view.relay_pending = link.relay.pending.load(std::sync::atomic::Ordering::Relaxed);
@@ -737,28 +742,43 @@ fn build_prover_card(commands: &mut Commands, page: Entity, view: &BodyView) -> 
     }
 
     let per_proof = declared_rate("per_proof", 1.0);
-    let accrued = p.lifetime as f64 * per_proof;
     let day_rate = p.tickets_per_min() * 60.0 * 24.0 * per_proof;
     if p.lifetime > 0 || p.running {
-        let pace = if p.running && day_rate > 0.0 {
-            format!("   ~ {day_rate:.0} PUSSY/day at this pace")
+        // The money line is the CHAIN's number — the same ChainMoney sigma
+        // shows — never lifetime x rate: proofs made before the chain
+        // listened (or between the last checkpoint and a shutdown) were
+        // never minted, and a wallet must not claim what the ledger
+        // does not hold.
+        let money = &view.chain;
+        if money.height > 0 {
+            let pace = if p.running && day_rate > 0.0 {
+                format!("   ~ {day_rate:.0} PUSSY/day at this pace")
+            } else {
+                String::new()
+            };
+            text(
+                commands,
+                card,
+                format!("earned on chain {} PUSSY{pace}", money.balance),
+                theme::BODY,
+                theme::ACID_GREEN,
+            );
         } else {
-            String::new()
-        };
+            text(
+                commands,
+                card,
+                "earnings: waiting for the chain...".into(),
+                theme::CAPTION,
+                theme::TEXT_DIM,
+            );
+        }
         text(
             commands,
             card,
             format!(
-                "accrued {accrued:.0} PUSSY ({} proofs, {per_proof:.0}/proof declared){pace}",
+                "proofs {} all-time (work counter; only checkpointed work mints - {per_proof:.0}/proof)",
                 p.lifetime
             ),
-            theme::BODY,
-            theme::ACID_GREEN,
-        );
-        text(
-            commands,
-            card,
-            "offline onramp: proven work is metered now, the chain pays when it lands".into(),
             theme::CAPTION,
             theme::TEXT_DIM,
         );
